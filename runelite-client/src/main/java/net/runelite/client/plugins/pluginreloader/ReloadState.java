@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023, Adam <Adam@sigterm.info>
+ * Copyright (c) 2026, Orvian
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -22,69 +22,23 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package net.runelite.api;
+package net.runelite.client.plugins.pluginreloader;
 
-public interface ActorSpotAnim extends Renderable
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
+@Getter
+@RequiredArgsConstructor
+public enum ReloadState
 {
-	/**
-	 * Get the spotanim id
-	 * @see net.runelite.api.gameval.SpotanimID
-	 * @return
-	 */
-	int getId();
+	IDLE("Idle"),
+	RELOAD("RELOAD");
 
-	/**
-	 * Set the spotanim id
-	 * @see net.runelite.api.gameval.SpotanimID
-	 * @param id
-	 */
-	void setId(int id);
+	private final String name;
 
-	/**
-	 * Get the client cycle that the spotanim starts at
-	 * @return
-	 */
-	int getStartCycle();
-
-	/**
-	 * Set the client cycle that the spotanim starts at
-	 * @param cycle
-	 */
-	void setStartCycle(int cycle);
-
-	/**
-	 * Get the spotanim height
-	 * @return
-	 */
-	int getHeight();
-
-	/**
-	 * Set the spotanim height
-	 * @param height
-	 */
-	void setHeight(int height);
-
-	/**
-	 * Get the spotanim frame
-	 * @return
-	 */
-	int getFrame();
-
-	/**
-	 * Set the spotanim frame
-	 * @param frame
-	 */
-	void setFrame(int frame);
-
-	/**
-	 * Get the frame cycle. The number of ticks the client has been on this frame.
-	 * @return
-	 */
-	int getCycle();
-
-	/**
-	 * Set the frame cycle.
-	 * @param cycle
-	 */
-	void setCycle(int cycle);
+	@Override
+	public String toString()
+	{
+		return name;
+	}
 }
