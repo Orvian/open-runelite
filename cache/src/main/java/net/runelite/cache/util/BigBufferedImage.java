@@ -291,6 +291,9 @@ public class BigBufferedImage extends BufferedImage
 			buffer[bank].put(i, (byte) val);
 		}
 
+		// finalize() is deprecated for removal; this is a best-effort backstop for
+		// deleting the mapped temp files and should be migrated to a Cleaner
+		@SuppressWarnings("removal")
 		@Override
 		protected void finalize() throws Throwable
 		{

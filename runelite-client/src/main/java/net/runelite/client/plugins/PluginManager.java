@@ -155,6 +155,8 @@ public class PluginManager
 		});
 	}
 
+	// ThreadDeath is deprecated for removal, but Thread.stop still throws it on Java 11
+	@SuppressWarnings("removal")
 	public Config getPluginConfigProxy(Plugin plugin)
 	{
 		try
@@ -208,6 +210,8 @@ public class PluginManager
 		return list;
 	}
 
+	// ThreadDeath is deprecated for removal, but Thread.stop still throws it on Java 11
+	@SuppressWarnings("removal")
 	public void loadDefaultPluginConfiguration(Collection<Plugin> plugins)
 	{
 		try
@@ -637,6 +641,8 @@ public class PluginManager
 		return newPlugins;
 	}
 
+	// ThreadDeath is deprecated for removal, but Thread.stop still throws it on Java 11
+	@SuppressWarnings("removal")
 	public boolean startPlugin(Plugin plugin) throws PluginInstantiationException
 	{
 		// plugins always start in the EDT
@@ -771,6 +777,8 @@ public class PluginManager
 		return activePlugins.contains(plugin);
 	}
 
+	// ThreadDeath is deprecated for removal, but Thread.stop still throws it on Java 11
+	@SuppressWarnings("removal")
 	private Plugin instantiate(List<Plugin> scannedPlugins, Class<Plugin> clazz) throws PluginInstantiationException
 	{
 		PluginDependency[] pluginDependencies = clazz.getAnnotationsByType(PluginDependency.class);

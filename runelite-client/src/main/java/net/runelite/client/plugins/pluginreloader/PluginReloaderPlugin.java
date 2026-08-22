@@ -148,7 +148,7 @@ public class PluginReloaderPlugin extends Plugin
 		for (Plugin p : new ArrayList<>(pluginManager.getPlugins()))
 		{
 			String simpleName = p.getClass().getSimpleName().toLowerCase();
-			boolean isSelected = validPlugins.stream().anyMatch(v -> v.replace(".jar", "").equalsIgnoreCase(simpleName.replace("plugin", "")));
+			boolean isSelected = validPlugins.stream().anyMatch(v -> baseName(v).equals(simpleName.replace("plugin", "")));
 			if (isSelected && pluginManager.isPluginActive(p))
 			{
 				try
@@ -183,7 +183,7 @@ public class PluginReloaderPlugin extends Plugin
 					for (Plugin p : pluginManager.getPlugins())
 					{
 						String simpleName = p.getClass().getSimpleName().toLowerCase();
-						boolean isSelected = validPlugins.stream().anyMatch(v -> v.replace(".jar", "").equalsIgnoreCase(simpleName.replace("plugin", "")));
+						boolean isSelected = validPlugins.stream().anyMatch(v -> baseName(v).equals(simpleName.replace("plugin", "")));
 						log.debug("Checking plugin: {}, isSelected: {}, isActive: {}", simpleName, isSelected, pluginManager.isPluginActive(p));
 						if (isSelected && !pluginManager.isPluginActive(p))
 						{
@@ -253,11 +253,25 @@ public class PluginReloaderPlugin extends Plugin
 		return validPlugins;
 	}
 
+	/**
+	 * Maps a side-loaded jar file name to the plugin's base name: strips ".jar" and any
+	 * trailing version suffix, e.g. "drakan-0.0.1.jar" -> "drakan".
+	 *
+	 * PluginManager enables plugins by config key "runelite." + classSimpleName.toLowerCase()
+	 * ("drakanplugin"), so every comparison and config write here has to normalise the
+	 * version away - keying on "drakan-0.0.1plugin" wrote a key nothing ever reads, which
+	 * left reloaded plugins permanently "not enabled".
+	 */
+	private static String baseName(String jarName)
+	{
+		return jarName.replace(".jar", "").replaceAll("-[0-9][0-9A-Za-z.\\-]*$", "").toLowerCase();
+	}
+
 	private void enablePluginsInConfig(List<String> pluginNames)
 	{
 		for (String pluginName : pluginNames)
 		{
-			String className = pluginName.replace(".jar", "") + "plugin";
+			String className = baseName(pluginName) + "plugin";
 			try
 			{
 				configManager.setConfiguration("runelite", className, String.valueOf(true));
@@ -273,7 +287,7 @@ public class PluginReloaderPlugin extends Plugin
 	{
 		for (String pluginName : pluginNames)
 		{
-			String className = pluginName.replace(".jar", "") + "plugin";
+			String className = baseName(pluginName) + "plugin";
 			try
 			{
 				configManager.setConfiguration("runelite", className, String.valueOf(false));
