@@ -185,6 +185,7 @@ public class DevToolsPlugin extends Plugin
 	private DevToolsButton uiDefaultsInspector;
 	private DevToolsButton worldEntities;
 	private DevToolsButton actionLog;
+	private DevToolsButton sideloadedPlugins;
 	private DevToolsButton combatTarget;
 	private NavigationButton navButton;
 
@@ -284,6 +285,7 @@ public class DevToolsPlugin extends Plugin
 		scriptInspector = new DevToolsButton("Script Inspector");
 		inventoryInspector = new DevToolsButton("Inventory Inspector");
 		actionLog = new DevToolsButton("Action Log");
+		sideloadedPlugins = new DevToolsButton("Side-loaded Plugins");
 		tileFlags = new DevToolsButton("Tile flags");
 		shell = new DevToolsButton("Shell");
 		menus = new DevToolsButton("Menus");

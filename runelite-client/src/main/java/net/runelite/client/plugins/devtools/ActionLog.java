@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026, Open RuneLite contributors
+ * Copyright (c) 2026, Orvian
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -65,6 +65,7 @@ import net.runelite.api.HitsplatID;
 import net.runelite.api.NPC;
 import net.runelite.api.Player;
 import net.runelite.api.Projectile;
+import net.runelite.api.WorldView;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.ActorDeath;
 import net.runelite.api.events.AnimationChanged;
@@ -550,11 +551,12 @@ class ActionLog extends DevToolsFrame
 		}
 
 		Actor resolved = local.getInteracting();
-		if (resolved == null || resolved.isDead())
+		final WorldView worldView = client.getTopLevelWorldView();
+		if ((resolved == null || resolved.isDead()) && worldView != null)
 		{
 			// Nothing being attacked, so fall back to whatever is attacking us
 			resolved = null;
-			for (NPC npc : client.getTopLevelWorldView().npcs())
+			for (NPC npc : worldView.npcs())
 			{
 				if (npc.getInteracting() == local && !npc.isDead())
 				{
@@ -647,8 +649,9 @@ class ActionLog extends DevToolsFrame
 		if (local != null && local.getWorldLocation() != null)
 		{
 			lastLocalPosition = local.getWorldLocation();
+			final WorldView worldView = client.getTopLevelWorldView();
 			addLine("=== context: world " + client.getWorld() + ", you at " + format(lastLocalPosition)
-				+ ", instance " + client.getTopLevelWorldView().isInstance() + " ===");
+				+ ", instance " + (worldView != null && worldView.isInstance()) + " ===");
 		}
 	}
 

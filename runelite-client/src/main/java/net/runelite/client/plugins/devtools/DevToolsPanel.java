@@ -60,6 +60,7 @@ class DevToolsPanel extends PluginPanel
 	private final VarInspector varInspector;
 	private final ScriptInspector scriptInspector;
 	private final ActionLog actionLog;
+	private final SideloadedPlugins sideloadedPlugins;
 	private final InventoryInspector inventoryInspector;
 	private final InfoBoxManager infoBoxManager;
 	private final ScheduledExecutorService scheduledExecutorService;
@@ -74,6 +75,7 @@ class DevToolsPanel extends PluginPanel
 		VarInspector varInspector,
 		ScriptInspector scriptInspector,
 		ActionLog actionLog,
+		SideloadedPlugins sideloadedPlugins,
 		InventoryInspector inventoryInspector,
 		Notifier notifier,
 		InfoBoxManager infoBoxManager,
@@ -89,6 +91,7 @@ class DevToolsPanel extends PluginPanel
 		this.inventoryInspector = inventoryInspector;
 		this.scriptInspector = scriptInspector;
 		this.actionLog = actionLog;
+		this.sideloadedPlugins = sideloadedPlugins;
 		this.notifier = notifier;
 		this.infoBoxManager = infoBoxManager;
 		this.scheduledExecutorService = scheduledExecutorService;
@@ -109,6 +112,9 @@ class DevToolsPanel extends PluginPanel
 		plugin.getActionLog().addFrame(actionLog);
 
 		container.add(plugin.getCombatTarget());
+
+		container.add(plugin.getSideloadedPlugins());
+		plugin.getSideloadedPlugins().addFrame(sideloadedPlugins);
 
 		container.add(plugin.getPlayers());
 		container.add(plugin.getNpcs());
