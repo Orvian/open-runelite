@@ -28,6 +28,7 @@ import java.awt.BorderLayout;
 import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.Font;
 import java.awt.GridLayout;
 import java.io.File;
 import java.io.IOException;
@@ -48,6 +49,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.inject.Inject;
 import javax.swing.JButton;
+import javax.swing.ImageIcon;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -70,6 +72,7 @@ import net.runelite.client.plugins.PluginInstantiationException;
 import net.runelite.client.plugins.PluginManager;
 import net.runelite.api.ChatMessageType;
 import net.runelite.client.ui.DynamicGridLayout;
+import net.runelite.client.util.ImageUtil;
 
 /**
  * Lists the jars in the side-loaded plugins directory and reloads them, replacing the two step
@@ -131,6 +134,7 @@ class SideloadedPlugins extends DevToolsFrame
 		this.chatMessageManager = chatMessageManager;
 
 		setTitle("RuneLite Side-loaded Plugins");
+		setIconImage(ImageUtil.loadImageResource(SideloadedPlugins.class, "plugin_icon.png"));
 		setLayout(new BorderLayout());
 
 		jarList.setLayout(new DynamicGridLayout(0, 1, 0, 2));
@@ -142,6 +146,11 @@ class SideloadedPlugins extends DevToolsFrame
 		final JScrollPane scroller = new JScrollPane(listWrapper);
 		scroller.setPreferredSize(new Dimension(520, 420));
 		add(scroller, BorderLayout.CENTER);
+
+		final JLabel header = new JLabel(" Side-loaded plugins",
+			new ImageIcon(ImageUtil.loadImageResource(SideloadedPlugins.class, "plugin_icon.png")),
+			JLabel.LEFT);
+		header.setFont(header.getFont().deriveFont(Font.BOLD));
 
 		final JPanel searchRow = new JPanel();
 		searchRow.setLayout(new BorderLayout());
@@ -168,7 +177,11 @@ class SideloadedPlugins extends DevToolsFrame
 				refreshList();
 			}
 		});
-		add(searchRow, BorderLayout.NORTH);
+		final JPanel north = new JPanel();
+		north.setLayout(new BorderLayout());
+		north.add(header, BorderLayout.NORTH);
+		north.add(searchRow, BorderLayout.SOUTH);
+		add(north, BorderLayout.NORTH);
 
 		final JPanel options = new JPanel();
 		options.setLayout(new GridLayout(0, 3, 2, 2));
