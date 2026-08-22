@@ -134,7 +134,8 @@ class SideloadedPlugins extends DevToolsFrame
 		this.chatMessageManager = chatMessageManager;
 
 		setTitle("RuneLite Side-loaded Plugins");
-		setIconImage(ImageUtil.loadImageResource(SideloadedPlugins.class, "plugin_icon.png"));
+		// deliberately not setIconImage: on X11 the taskbar groups windows by application and picks the
+		// group icon from one of them, so overriding it here replaces RuneLite's icon in the panel
 		setLayout(new BorderLayout());
 
 		jarList.setLayout(new DynamicGridLayout(0, 1, 0, 2));

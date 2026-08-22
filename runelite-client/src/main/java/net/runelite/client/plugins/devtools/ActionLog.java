@@ -43,6 +43,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
 import javax.inject.Inject;
+import javax.swing.BorderFactory;
+import javax.swing.BoxLayout;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
@@ -80,6 +83,7 @@ import net.runelite.api.events.GraphicsObjectCreated;
 import net.runelite.api.events.GroundObjectSpawned;
 import net.runelite.api.events.HitsplatApplied;
 import net.runelite.api.events.InteractingChanged;
+import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.NpcChanged;
 import net.runelite.api.events.NpcDespawned;
 import net.runelite.api.events.NpcSpawned;
@@ -89,6 +93,8 @@ import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.gameval.VarbitID;
 import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.util.ImageUtil;
+import net.runelite.client.util.Text;
 
 /**
  * A per-tick log of the events that make up a fight, in a form that is meant to be read (or pasted
@@ -101,7 +107,7 @@ import net.runelite.client.eventbus.Subscribe;
  */
 class ActionLog extends DevToolsFrame
 {
-	private static final int MAX_LOG_ENTRIES = 10_000;
+	private static final int MAX_LOG_ENTRIES = 50_000;
 
 	/**
 	 * Ticks without a relevant event before the current fight is considered over.
@@ -130,32 +136,82 @@ class ActionLog extends DevToolsFrame
 	@Getter
 	private enum Category
 	{
-		ANIMATION("Animations", true),
-		SPOTANIM("Spotanims", true),
-		PROJECTILE("Projectiles", true),
-		HITSPLAT("Hitsplats", true),
-		INTERACTING("Targeting", true),
-		MOVEMENT("Movement", true),
-		HEALTH("Target HP", true),
-		OVERHEAD("Overhead", true),
-		TRANSFORM("NPC transform", true),
-		GROUND_GFX("Ground gfx", true),
-		VARBIT("Varbits", false),
-		CHAT("Chat", false),
-		SOUND("Sounds", false),
-		ADDS("NPC spawns", false),
-		OBJECTS("Scene objects", false),
-		POSE("Pose anims", false),
-		IDLE("Idle resets", false),
-		ALL_ACTORS("All actors", false);
+		ANIMATION("Animations", true, Group.COMBAT,
+			"<html>Animation id changes, with how long the previous one was held<br>"
+				+ "and which way the target is facing. Each new animation on the<br>"
+				+ "target starts a numbered step.</html>"),
+		SPOTANIM("Spotanims", true, Group.COMBAT,
+			"<html>Graphics attached to an actor, such as attack effects and<br>"
+				+ "impacts. Only newly added ones are logged, one line per tick.</html>"),
+		PROJECTILE("Projectiles", true, Group.COMBAT,
+			"<html>Projectiles fired between actors, with id, who it is aimed at<br>"
+				+ "and how long it is in the air. Logged once, when first seen.</html>"),
+		HITSPLAT("Hitsplats", true, Group.COMBAT,
+			"<html>Damage as it lands, with the hitsplat type (DAMAGE_ME,<br>"
+				+ "BLOCK_ME and so on). Also drives the damage totals.</html>"),
+		INTERACTING("Targeting", true, Group.COMBAT,
+			"<html>Who is attacking or following whom. Repeats of the same<br>"
+				+ "pairing are dropped, so only changes show.</html>"),
+		OVERHEAD("Overhead", true, Group.COMBAT,
+			"Overhead prayer icon of the target, logged when it changes"),
+		HEALTH("Target HP", true, Group.COMBAT,
+			"<html>Target health as a percentage, only when it changes.<br>"
+				+ "Useful for finding phase thresholds.</html>"),
+		CLICKS("Clicks", true, Group.WORLD,
+			"<html>Every menu click: option, target, action type and ids.<br>"
+				+ "Always logged, even with \"Only when fighting\" on.</html>"),
+		TRANSFORM("NPC transform", true, Group.WORLD,
+			"<html>An NPC changing into another id, which is usually how a<br>"
+				+ "boss switches phase and the cleanest thing to key a plugin off.</html>"),
+		MOVEMENT("Movement", true, Group.WORLD,
+			"<html>Your tile and the target's, only when they change, with the<br>"
+				+ "distance between you. Standing still logs nothing.</html>"),
+		GROUND_GFX("Ground gfx", true, Group.WORLD,
+			"<html>Graphics spawned on tiles, such as the area an attack covers.<br>"
+				+ "Grouped into one line per tick listing every tile.</html>"),
+		OBJECTS("Scene objects", false, Group.WORLD,
+			"<html>Game, ground and decorative objects appearing near you.<br>"
+				+ "Worth turning on if a mechanic is drawn as scenery rather<br>"
+				+ "than as a graphic.</html>"),
+		ADDS("NPC spawns", false, Group.WORLD,
+			"NPCs spawning or despawning within 15 tiles, such as adds"),
+		VARBIT("Varbits", false, Group.WORLD,
+			"<html>Varbits changing, named where the name is known. Ones that<br>"
+				+ "change every tick are muted automatically as clocks.<br>"
+				+ "This is how you find the varbit that tracks a boss phase.</html>"),
+		CHAT("Chat", false, Group.WORLD,
+			"Game messages, which bosses often use to announce a mechanic"),
+		SOUND("Sounds", false, Group.WORLD,
+			"<html>Sound effects, including area sounds and what played them.<br>"
+				+ "Sometimes a telegraph arrives as a sound first.</html>"),
+		IN_COMBAT_ONLY("Only when fighting", true, Group.NOISE,
+			"<html>On: only log while something is being fought.<br>"
+				+ "Off: also log while walking, skilling and standing around.</html>"),
+		POSE("Pose anims", false, Group.NOISE,
+			"<html>Stance animations (idle, walk, run). These churn constantly<br>"
+				+ "while moving, so they are off by default.</html>"),
+		IDLE("Idle resets", false, Group.NOISE,
+			"<html>Also log animations and spotanims ending (the -1 values) and<br>"
+				+ "placeholder graphics. Roughly doubles the line count.</html>"),
+		ALL_ACTORS("All actors", false, Group.NOISE,
+			"<html>Log every actor in the scene, not just you and what you are<br>"
+				+ "fighting. Very noisy in a crowded area.</html>");
 
 		private final String name;
 		private final JCheckBox checkBox;
+		private final Group group;
 
-		Category(String name, boolean on)
+		Category(String name, boolean on, Group group)
+		{
+			this(name, on, group, null);
+		}
+
+		Category(String name, boolean on, Group group, String tooltip)
 		{
 			this.name = name;
+			this.group = group;
 			checkBox = new JCheckBox(name, on);
+			checkBox.setToolTipText(tooltip);
 		}
 
 		boolean isEnabled()
@@ -167,6 +223,23 @@ class ActionLog extends DevToolsFrame
 	/**
 	 * What an event happened to, which is all the summary needs to know about actors.
 	 */
+	/**
+	 * Which section of the filter panel a category is drawn in.
+	 */
+	private enum Group
+	{
+		COMBAT("Combat"),
+		WORLD("World & state"),
+		NOISE("Noise");
+
+		private final String title;
+
+		Group(String title)
+		{
+			this.title = title;
+		}
+	}
+
 	private enum Who
 	{
 		TARGET,
@@ -216,6 +289,8 @@ class ActionLog extends DevToolsFrame
 	private final JTextArea area = new JTextArea();
 	private final JScrollPane scroller;
 	private final JTextField filter = new JTextField();
+	private final JLabel statusBar = new JLabel();
+	private final JButton startStopBtn = new JButton("Stop logging");
 
 	/**
 	 * Every captured line. What the area shows is this, minus whatever the filter excludes.
@@ -249,6 +324,14 @@ class ActionLog extends DevToolsFrame
 	private final Map<Integer, int[]> pendingGroundGfxStamps = new HashMap<>();
 	private final Map<Integer, Integer> pendingGroundGfxLeads = new HashMap<>();
 
+	/**
+	 * Spawns and scene objects arrive one event per thing, and a region load fires hundreds. They are
+	 * gathered per tick and collapsed by what they are, so ten of the same goblin is one line rather
+	 * than ten, while ten different ones stay ten.
+	 */
+	private final Map<String, List<WorldPoint>> pendingSpawns = new LinkedHashMap<>();
+	private final Map<String, int[]> pendingSpawnStamps = new HashMap<>();
+
 	private final Set<String> soundsThisTick = new HashSet<>();
 
 	private Actor lastInteractSource;
@@ -273,8 +356,21 @@ class ActionLog extends DevToolsFrame
 	private boolean followTail = true;
 
 	private Actor target;
+
+	/**
+	 * The target's description, worked out on the client thread when it changes. The status bar is built
+	 * on the event dispatch thread, where touching the game's api throws.
+	 */
+	private volatile String targetLabel = "";
 	private int fightStartTick = -1;
 	private int fightStartCycle = -1;
+
+	/**
+	 * What the tick and cycle offsets count from when nothing is being fought, so the log is still
+	 * readable with "Fights only" switched off.
+	 */
+	private int sessionStartTick = -1;
+	private int sessionStartCycle = -1;
 	private int lastEventTick = -1;
 	private int step;
 	private int damageDealt;
@@ -309,11 +405,52 @@ class ActionLog extends DevToolsFrame
 
 		add(trackerScroller, BorderLayout.CENTER);
 
+		// Toolbar: what you press while logging, kept together at the top so the log itself owns the
+		// rest of the window
+		final JPanel toolbar = new JPanel();
+		toolbar.setLayout(new FlowLayout(FlowLayout.LEFT, 4, 4));
+
+		final JLabel title = new JLabel("Action Log",
+			new ImageIcon(ImageUtil.loadImageResource(ActionLog.class, "devtools_icon.png")), JLabel.LEFT);
+		title.setFont(title.getFont().deriveFont(Font.BOLD));
+		toolbar.add(title);
+
+		startStopBtn.setToolTipText("Stop capturing. What is already logged stays.");
+		startStopBtn.addActionListener(e -> setRecording(!recording));
+		toolbar.add(startStopBtn);
+
+		final JButton copyBtn = new JButton("Copy");
+		copyBtn.setToolTipText("<html>Copy what is shown, with a header describing the format.<br>"
+			+ "A filter narrows what you paste.</html>");
+		copyBtn.addActionListener(e -> Toolkit.getDefaultToolkit()
+			.getSystemClipboard()
+			.setContents(new StringSelection(legend() + area.getText()), null));
+		toolbar.add(copyBtn);
+
+		final JButton summaryBtn = new JButton("Summary");
+		summaryBtn.setToolTipText("Append the attack pattern seen so far");
+		summaryBtn.addActionListener(e -> summarise());
+		toolbar.add(summaryBtn);
+
+		final JButton clearBtn = new JButton("Clear");
+		clearBtn.addActionListener(e ->
+		{
+			lines.clear();
+			events.clear();
+			synchronized (pending)
+			{
+				pending.clear();
+			}
+			area.setText("");
+			updateStatus();
+		});
+		toolbar.add(clearBtn);
+
 		final JPanel filterRow = new JPanel();
-		filterRow.setLayout(new BorderLayout());
-		filterRow.add(new JLabel(" Filter: "), BorderLayout.WEST);
+		filterRow.setLayout(new BorderLayout(4, 0));
+		filterRow.add(new JLabel(" Find "), BorderLayout.WEST);
 		filterRow.add(filter, BorderLayout.CENTER);
-		filter.setToolTipText("Show only lines containing this text - applies to lines already captured");
+		filter.setToolTipText("Show only lines containing this text, including ones already captured");
 		filter.getDocument().addDocumentListener(new DocumentListener()
 		{
 			@Override
@@ -334,58 +471,111 @@ class ActionLog extends DevToolsFrame
 				rebuild();
 			}
 		});
-		add(filterRow, BorderLayout.NORTH);
 
+		final JPanel north = new JPanel();
+		north.setLayout(new BorderLayout());
+		north.add(toolbar, BorderLayout.NORTH);
+		north.add(filterRow, BorderLayout.SOUTH);
+		add(north, BorderLayout.NORTH);
+
+		// Filters, grouped so the panel says what each block is for instead of presenting 19 loose boxes
 		final JPanel filters = new JPanel();
-		filters.setLayout(new GridLayout(0, 4, 2, 2));
-		for (Category c : Category.values())
+		filters.setLayout(new BoxLayout(filters, BoxLayout.Y_AXIS));
+		for (Group group : Group.values())
 		{
-			filters.add(c.getCheckBox());
+			final JPanel section = new JPanel();
+			section.setLayout(new GridLayout(0, 4, 2, 0));
+			section.setBorder(BorderFactory.createTitledBorder(group.title));
+			for (Category c : Category.values())
+			{
+				if (c.group == group)
+				{
+					section.add(c.getCheckBox());
+				}
+			}
+
+			filters.add(section);
 		}
 
-		final JPanel buttons = new JPanel();
-		buttons.setLayout(new FlowLayout());
+		statusBar.setBorder(BorderFactory.createEmptyBorder(2, 6, 2, 6));
 
 		final JPanel trackerOpts = new JPanel();
 		trackerOpts.setLayout(new BorderLayout());
 		trackerOpts.add(filters, BorderLayout.CENTER);
-		trackerOpts.add(buttons, BorderLayout.SOUTH);
-
-		final JButton startStopBtn = new JButton("Stop logging");
-		startStopBtn.addActionListener(e ->
-		{
-			recording = !recording;
-			startStopBtn.setText(recording ? "Stop logging" : "Start logging");
-			appendLine(recording ? "=== logging started ===" : "=== logging stopped ===");
-		});
-		buttons.add(startStopBtn);
-
-		final JButton copyBtn = new JButton("Copy");
-		copyBtn.addActionListener(e -> Toolkit.getDefaultToolkit()
-			.getSystemClipboard()
-			.setContents(new StringSelection(area.getText()), null));
-		buttons.add(copyBtn);
-
-		final JButton summaryBtn = new JButton("Summary");
-		summaryBtn.addActionListener(e -> summarise());
-		buttons.add(summaryBtn);
-
-		final JButton clearBtn = new JButton("Clear");
-		clearBtn.addActionListener(e ->
-		{
-			lines.clear();
-			events.clear();
-			synchronized (pending)
-			{
-				pending.clear();
-			}
-			area.setText("");
-		});
-		buttons.add(clearBtn);
+		trackerOpts.add(statusBar, BorderLayout.SOUTH);
 
 		add(trackerOpts, BorderLayout.SOUTH);
+		updateStatus();
 
 		pack();
+	}
+
+
+	/**
+	 * A header describing the format, prepended to whatever is copied. The log is usually pasted
+	 * somewhere that has no idea what the columns mean - including a language model being asked to work
+	 * out a boss rotation - so the paste explains itself.
+	 */
+	private String legend()
+	{
+		final StringBuilder sb = new StringBuilder(
+			"# RuneLite action log\n"
+				+ "# format: [t+<ticks since fight start> c+<client cycles, 30 per tick / 20ms each> "
+				+ "s<attack step>] event\n"
+				+ "# a step begins each time the fight target starts a new animation\n"
+				+ "# orientation is JAU: 0=south, 512=west, 1024=north, 1536=east\n");
+
+		final StringBuilder on = new StringBuilder();
+		for (Category c : Category.values())
+		{
+			if (c.isEnabled())
+			{
+				on.append(on.length() == 0 ? "" : ", ").append(c.getName());
+			}
+		}
+
+		sb.append("# capturing: ").append(on).append('\n');
+
+		if (!filter.getText().isEmpty())
+		{
+			sb.append("# showing only lines containing \"").append(filter.getText()).append("\"\n");
+		}
+
+		sb.append("# ").append(lines.size()).append(" lines captured\n\n");
+		return sb.toString();
+	}
+
+	private void setRecording(boolean value)
+	{
+		recording = value;
+		startStopBtn.setText(value ? "Stop logging" : "Start logging");
+		appendLine(value ? "=== logging started ===" : "=== logging stopped ===");
+		// pressing the button should show something now, not on the next game tick
+		flushPending();
+		updateStatus();
+	}
+
+	/**
+	 * The one line that says what the log is doing: whether it is capturing, how much it holds, and what
+	 * fight the step numbers belong to.
+	 */
+	private void updateStatus()
+	{
+		final StringBuilder sb = new StringBuilder();
+		sb.append(recording ? "recording" : "paused")
+			.append("  |  ").append(lines.size()).append(" lines");
+
+		if (!filter.getText().isEmpty())
+		{
+			sb.append(" (filtered)");
+		}
+
+		if (fightStartTick >= 0 && !targetLabel.isEmpty())
+		{
+			sb.append("  |  fighting ").append(targetLabel).append(", step ").append(step);
+		}
+
+		statusBar.setText(sb.toString());
 	}
 
 	private void addLine(String line)
@@ -451,6 +641,8 @@ class ActionLog extends DevToolsFrame
 				area.append(appended.toString());
 				scrollToTailIfFollowing();
 			}
+
+			updateStatus();
 		});
 	}
 
@@ -477,6 +669,7 @@ class ActionLog extends DevToolsFrame
 
 		area.setText(sb.toString());
 		scrollToTailIfFollowing();
+		updateStatus();
 	}
 
 	private void scrollToTailIfFollowing()
@@ -519,13 +712,24 @@ class ActionLog extends DevToolsFrame
 
 	private void addEventAt(int tick, int cycle, String text, Kind kind, Who who, int id, int amount)
 	{
-		if (fightStartTick < 0)
+		// A passive event outside a fight (only possible with "Fights only" off) must not open one -
+		// walking around is not a fight - so those count from when logging started instead
+		if (fightStartTick < 0 && kind != null)
 		{
 			startFight(tick, cycle);
 		}
 
+		if (sessionStartTick < 0)
+		{
+			sessionStartTick = tick;
+			sessionStartCycle = cycle;
+		}
+
+		final int baseTick = fightStartTick >= 0 ? fightStartTick : sessionStartTick;
+		final int baseCycle = fightStartTick >= 0 ? fightStartCycle : sessionStartCycle;
+
 		lastEventTick = tick;
-		addLine(String.format("[t+%-3d c+%-4d s%-2d] %s", tick - fightStartTick, cycle - fightStartCycle, step, text));
+		addLine(String.format("[t+%-3d c+%-4d s%-2d] %s", tick - baseTick, cycle - baseCycle, step, text));
 
 		if (kind != null)
 		{
@@ -572,6 +776,7 @@ class ActionLog extends DevToolsFrame
 		}
 
 		target = resolved;
+		targetLabel = describe(resolved);
 		lastTargetPosition = null;
 		lastTargetHealth = -1;
 		lastTargetOverhead = null;
@@ -598,6 +803,7 @@ class ActionLog extends DevToolsFrame
 		}
 
 		targetNamed = true;
+		targetLabel = describe(target);
 		lastTargetPosition = target.getWorldLocation();
 		final int size = target instanceof NPC && ((NPC) target).getComposition() != null
 			? ((NPC) target).getComposition().getSize() : 1;
@@ -613,9 +819,26 @@ class ActionLog extends DevToolsFrame
 	 * Logs context that is only meaningful inside a fight. Unlike {@link #addEvent}, this never starts
 	 * one - walking around or a varbit ticking over is not the beginning of a fight.
 	 */
+	/**
+	 * @return whether passive context should be dropped, which it is outside a fight unless the log has
+	 * been asked to record everything
+	 */
+	private boolean outOfScope()
+	{
+		return Category.IN_COMBAT_ONLY.isEnabled() && fightStartTick < 0;
+	}
+
+	/**
+	 * Logs regardless of whether a fight is running, for things the player did on purpose.
+	 */
+	private void addAlways(String text)
+	{
+		addEventAt(client.getTickCount(), client.getGameCycle(), text, null, null, 0, 0);
+	}
+
 	private void addPassive(String text)
 	{
-		if (fightStartTick < 0)
+		if (outOfScope())
 		{
 			return;
 		}
@@ -663,7 +886,8 @@ class ActionLog extends DevToolsFrame
 		}
 
 		addLine(String.format("=== fight end: %s @ tick %d (%dt, %d steps) dealt %d taken %d ===",
-			describe(target), lastEventTick, lastEventTick - fightStartTick, step, damageDealt, damageTaken));
+			targetLabel.isEmpty() ? "?" : targetLabel,
+			lastEventTick, lastEventTick - fightStartTick, step, damageDealt, damageTaken));
 		summarise();
 		addLine("");
 
@@ -675,6 +899,7 @@ class ActionLog extends DevToolsFrame
 		lastPoses.clear();
 		seenProjectiles.clear();
 		targetNamed = false;
+		targetLabel = "";
 		lastLocalPosition = null;
 		lastTargetPosition = null;
 		lastTargetHealth = -1;
@@ -686,6 +911,8 @@ class ActionLog extends DevToolsFrame
 		pendingGroundGfx.clear();
 		pendingGroundGfxStamps.clear();
 		pendingGroundGfxLeads.clear();
+		pendingSpawns.clear();
+		pendingSpawnStamps.clear();
 		animationStartTicks.clear();
 		soundsThisTick.clear();
 		lastInteractSource = null;
@@ -741,7 +968,8 @@ class ActionLog extends DevToolsFrame
 			return;
 		}
 
-		addLine("--- attack pattern: " + describe(target) + " ---");
+		// reachable from the Summary button, so the cached label is used rather than the game's api
+		addLine("--- attack pattern: " + (targetLabel.isEmpty() ? "?" : targetLabel) + " ---");
 
 		for (Map.Entry<Integer, List<Ev>> entry : followUps.entrySet())
 		{
@@ -889,9 +1117,9 @@ class ActionLog extends DevToolsFrame
 	public void onGameTick(GameTick event)
 	{
 		soundsThisTick.clear();
-		flushPending();
 		flushSpotAnims();
 		flushGroundGfx();
+		flushSpawns();
 		resolveTarget();
 
 		// These have no event of their own, so they are sampled once a tick and only logged on a change
@@ -909,6 +1137,9 @@ class ActionLog extends DevToolsFrame
 		{
 			endFight();
 		}
+
+		// Last, so everything logged during this tick - including by the flushes and samplers above reaches the view now rather than waiting for the next one
+		flushPending();
 	}
 
 	private void flushSpotAnims()
@@ -918,7 +1149,7 @@ class ActionLog extends DevToolsFrame
 			return;
 		}
 
-		if (fightStartTick < 0)
+		if (outOfScope())
 		{
 			// Not in a fight, so these were scenery rather than part of an attack
 			pendingSpotAnims.clear();
@@ -945,6 +1176,51 @@ class ActionLog extends DevToolsFrame
 		pendingSpotAnimStamps.clear();
 	}
 
+
+	/**
+	 * Maximum tiles listed per collapsed line before it just says how many more there were.
+	 */
+	private static final int MAX_TILES_LISTED = 6;
+
+	private void flushSpawns()
+	{
+		if (pendingSpawns.isEmpty())
+		{
+			return;
+		}
+
+		for (Map.Entry<String, List<WorldPoint>> entry : pendingSpawns.entrySet())
+		{
+			final List<WorldPoint> tiles = entry.getValue();
+			final int[] stamp = pendingSpawnStamps.get(entry.getKey());
+			final StringBuilder positions = new StringBuilder();
+			for (int i = 0; i < Math.min(tiles.size(), MAX_TILES_LISTED); i++)
+			{
+				positions.append(positions.length() == 0 ? "" : " ")
+					.append('(').append(tiles.get(i).getX()).append(',').append(tiles.get(i).getY()).append(')');
+			}
+
+			if (tiles.size() > MAX_TILES_LISTED)
+			{
+				positions.append(" +").append(tiles.size() - MAX_TILES_LISTED).append(" more");
+			}
+
+			addEventAt(stamp[0], stamp[1], entry.getKey()
+					+ (tiles.size() == 1 ? "" : " x" + tiles.size()) + " at " + positions,
+				null, null, 0, 0);
+		}
+
+		pendingSpawns.clear();
+		pendingSpawnStamps.clear();
+	}
+
+	private void queueSpawn(String what, WorldPoint position)
+	{
+		pendingSpawns.computeIfAbsent(what, k -> new ArrayList<>()).add(position);
+		pendingSpawnStamps.computeIfAbsent(what,
+			k -> new int[]{client.getTickCount(), client.getGameCycle()});
+	}
+
 	private void flushGroundGfx()
 	{
 		if (pendingGroundGfx.isEmpty())
@@ -952,7 +1228,7 @@ class ActionLog extends DevToolsFrame
 			return;
 		}
 
-		if (fightStartTick < 0)
+		if (outOfScope())
 		{
 			pendingGroundGfx.clear();
 			pendingGroundGfxStamps.clear();
@@ -1011,7 +1287,7 @@ class ActionLog extends DevToolsFrame
 	 */
 	private void sampleMovement()
 	{
-		if (!Category.MOVEMENT.isEnabled() || fightStartTick < 0)
+		if (!Category.MOVEMENT.isEnabled() || outOfScope())
 		{
 			return;
 		}
@@ -1075,7 +1351,7 @@ class ActionLog extends DevToolsFrame
 
 	private void sampleHealth()
 	{
-		if (!Category.HEALTH.isEnabled() || fightStartTick < 0 || target == null)
+		if (!Category.HEALTH.isEnabled() || outOfScope() || target == null)
 		{
 			return;
 		}
@@ -1097,7 +1373,7 @@ class ActionLog extends DevToolsFrame
 
 	private void sampleOverhead()
 	{
-		if (!Category.OVERHEAD.isEnabled() || fightStartTick < 0 || target == null)
+		if (!Category.OVERHEAD.isEnabled() || outOfScope() || target == null)
 		{
 			return;
 		}
@@ -1129,7 +1405,7 @@ class ActionLog extends DevToolsFrame
 	@Subscribe
 	public void onGraphicsObjectCreated(GraphicsObjectCreated event)
 	{
-		if (!Category.GROUND_GFX.isEnabled() || fightStartTick < 0)
+		if (!Category.GROUND_GFX.isEnabled() || outOfScope())
 		{
 			return;
 		}
@@ -1188,7 +1464,7 @@ class ActionLog extends DevToolsFrame
 	 */
 	private void logSceneObject(TileObject object, String what, String action)
 	{
-		if (!Category.OBJECTS.isEnabled() || fightStartTick < 0 || object == null)
+		if (!Category.OBJECTS.isEnabled() || outOfScope() || object == null)
 		{
 			return;
 		}
@@ -1200,14 +1476,13 @@ class ActionLog extends DevToolsFrame
 			return;
 		}
 
-		addPassive(what + " " + object.getId() + " " + action + " at " + format(position)
-			+ "  dist " + local.getWorldLocation().distanceTo(position));
+		queueSpawn(what + " " + object.getId() + " " + action, position);
 	}
 
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event)
 	{
-		if (!Category.VARBIT.isEnabled() || fightStartTick < 0 || event.getVarbitId() == -1)
+		if (!Category.VARBIT.isEnabled() || outOfScope() || event.getVarbitId() == -1)
 		{
 			return;
 		}
@@ -1246,7 +1521,7 @@ class ActionLog extends DevToolsFrame
 	@Subscribe
 	public void onChatMessage(ChatMessage event)
 	{
-		if (!Category.CHAT.isEnabled() || fightStartTick < 0)
+		if (!Category.CHAT.isEnabled() || outOfScope())
 		{
 			return;
 		}
@@ -1257,7 +1532,7 @@ class ActionLog extends DevToolsFrame
 	@Subscribe
 	public void onSoundEffectPlayed(SoundEffectPlayed event)
 	{
-		if (!Category.SOUND.isEnabled() || fightStartTick < 0)
+		if (!Category.SOUND.isEnabled() || outOfScope())
 		{
 			return;
 		}
@@ -1271,7 +1546,7 @@ class ActionLog extends DevToolsFrame
 	@Subscribe
 	public void onAreaSoundEffectPlayed(AreaSoundEffectPlayed event)
 	{
-		if (!Category.SOUND.isEnabled() || fightStartTick < 0)
+		if (!Category.SOUND.isEnabled() || outOfScope())
 		{
 			return;
 		}
@@ -1298,7 +1573,7 @@ class ActionLog extends DevToolsFrame
 
 	private void logNearbyNpc(NPC npc, String what)
 	{
-		if (!Category.ADDS.isEnabled() || fightStartTick < 0)
+		if (!Category.ADDS.isEnabled() || outOfScope())
 		{
 			return;
 		}
@@ -1309,7 +1584,43 @@ class ActionLog extends DevToolsFrame
 			return;
 		}
 
-		addPassive(npc.getName() + "(id " + npc.getId() + ") " + what + " at " + format(npc.getWorldLocation()));
+		if (outOfScope())
+		{
+			return;
+		}
+
+		queueSpawn(npc.getName() + "(id " + npc.getId() + ") " + what, npc.getWorldLocation());
+	}
+
+
+	@Subscribe
+	public void onMenuOptionClicked(MenuOptionClicked event)
+	{
+		if (!Category.CLICKS.isEnabled())
+		{
+			return;
+		}
+
+		final StringBuilder sb = new StringBuilder("click \"");
+		sb.append(event.getMenuOption()).append('"');
+
+		final String menuTarget = Text.removeTags(event.getMenuTarget());
+		if (!menuTarget.isEmpty())
+		{
+			sb.append(" on \"").append(menuTarget).append('"');
+		}
+
+		sb.append("  ").append(event.getMenuAction())
+			.append(" id ").append(event.getId())
+			.append(" params ").append(event.getParam0()).append(',').append(event.getParam1());
+
+		if (event.getItemId() != -1)
+		{
+			sb.append(" item ").append(event.getItemId());
+		}
+
+		// A click is an explicit action, so it is logged whether or not a fight is running
+		addAlways(sb.toString());
 	}
 
 	@Subscribe
