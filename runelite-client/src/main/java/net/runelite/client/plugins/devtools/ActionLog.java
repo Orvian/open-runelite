@@ -38,6 +38,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -1537,9 +1538,10 @@ class ActionLog extends DevToolsFrame
 			return;
 		}
 
-		if (soundsThisTick.add("s" + event.getSoundId()))
+		if (soundsThisTick.add("s" + event.getSoundId() + ":" + event.getDelay()))
 		{
-			addPassive("sound " + event.getSoundId());
+			addPassive("sound " + event.getSoundId()
+				+ (event.getDelay() == 0 ? "" : " delay " + event.getDelay()));
 		}
 	}
 
@@ -1551,10 +1553,16 @@ class ActionLog extends DevToolsFrame
 			return;
 		}
 
-		final String key = "a" + event.getSoundId() + ":" + System.identityHashCode(event.getSource());
+		// The position is part of what makes two plays different - the same sound to your left and to
+		// your right is two events, and collapsing them by id alone throws that away
+		final String key = "a" + event.getSoundId() + ":" + event.getSceneX() + "," + event.getSceneY()
+			+ ":" + event.getDelay() + ":" + System.identityHashCode(event.getSource());
 		if (soundsThisTick.add(key))
 		{
 			addPassive("area sound " + event.getSoundId()
+				+ " scene " + event.getSceneX() + "," + event.getSceneY()
+				+ " range " + event.getRange()
+				+ (event.getDelay() == 0 ? "" : " delay " + event.getDelay())
 				+ (event.getSource() == null ? "" : " from " + describe(event.getSource())));
 		}
 	}
@@ -1718,7 +1726,8 @@ class ActionLog extends DevToolsFrame
 		}
 
 		final Actor actor = event.getActor();
-		final Set<Integer> current = new HashSet<>();
+		// LinkedHashSet: the order spotanims arrive in is data, not an implementation detail
+		final Set<Integer> current = new LinkedHashSet<>();
 		for (ActorSpotAnim spotAnim : actor.getSpotAnims())
 		{
 			current.add(spotAnim.getId());
