@@ -132,6 +132,9 @@ public class DevToolsPlugin extends Plugin
 	private SoundEffectOverlay soundEffectOverlay;
 
 	@Inject
+	private CombatTargetOverlay combatTargetOverlay;
+
+	@Inject
 	private EventBus eventBus;
 
 	@Inject
@@ -181,6 +184,9 @@ public class DevToolsPlugin extends Plugin
 	private DevToolsButton menus;
 	private DevToolsButton uiDefaultsInspector;
 	private DevToolsButton worldEntities;
+	private DevToolsButton actionLog;
+	private DevToolsButton sideloadedPlugins;
+	private DevToolsButton combatTarget;
 	private NavigationButton navButton;
 
 	private final HotkeyListener swingInspectorHotkeyListener = new HotkeyListener(() -> config.swingInspectorHotkey())
@@ -278,6 +284,8 @@ public class DevToolsPlugin extends Plugin
 		soundEffects = new DevToolsButton("Sound Effects");
 		scriptInspector = new DevToolsButton("Script Inspector");
 		inventoryInspector = new DevToolsButton("Inventory Inspector");
+		actionLog = new DevToolsButton("Action Log");
+		sideloadedPlugins = new DevToolsButton("Side-loaded Plugins");
 		tileFlags = new DevToolsButton("Tile flags");
 		shell = new DevToolsButton("Shell");
 		menus = new DevToolsButton("Menus");
@@ -286,6 +294,8 @@ public class DevToolsPlugin extends Plugin
 
 		worldEntities = new DevToolsButton("World Entities");
 
+		combatTarget = new DevToolsButton("Combat Target");
+
 		overlayManager.add(overlay);
 		overlayManager.add(locationOverlay);
 		overlayManager.add(sceneOverlay);
@@ -293,6 +303,7 @@ public class DevToolsPlugin extends Plugin
 		overlayManager.add(worldMapLocationOverlay);
 		overlayManager.add(mapRegionOverlay);
 		overlayManager.add(soundEffectOverlay);
+		overlayManager.add(combatTargetOverlay);
 
 		final DevToolsPanel panel = injector.getInstance(DevToolsPanel.class);
 
@@ -323,6 +334,7 @@ public class DevToolsPlugin extends Plugin
 		overlayManager.remove(worldMapLocationOverlay);
 		overlayManager.remove(mapRegionOverlay);
 		overlayManager.remove(soundEffectOverlay);
+		overlayManager.remove(combatTargetOverlay);
 		clientToolbar.removeNavigation(navButton);
 		Toolkit.getDefaultToolkit().removeAWTEventListener(swingInspectorKeyListener);
 	}

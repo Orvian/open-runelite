@@ -25,13 +25,23 @@
 package net.runelite.client.plugins;
 
 import java.io.File;
+import java.lang.invoke.MethodHandles;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
+import net.runelite.client.util.ReflectUtil;
 
-class PluginClassLoader extends URLClassLoader
+@Slf4j
+class PluginClassLoader extends URLClassLoader implements ReflectUtil.PrivateLookupableClassLoader
 {
 	private final ClassLoader parent;
+
+	@Getter
+	@Setter
+	private MethodHandles.Lookup lookup;
 
 	PluginClassLoader(File plugin, ClassLoader parent) throws MalformedURLException
 	{
@@ -39,6 +49,25 @@ class PluginClassLoader extends URLClassLoader
 		super(new URL[]{plugin.toURI().toURL()}, null);
 
 		this.parent = parent;
+
+		try
+		{
+			// without this the EventBus can't create lambdas for @Subscribe methods in side-loaded
+			// plugins, and silently falls back to reflective invocation
+			ReflectUtil.installLookupHelper(this);
+		}
+		catch (RuntimeException ex)
+		{
+			// not fatal: the EventBus falls back to reflection, so loading the plugin is still worth trying
+			log.warn("unable to install lookup helper for {}, @Subscribe methods will use reflection",
+				plugin.getName(), ex);
+		}
+	}
+
+	@Override
+	public Class<?> defineClass0(String name, byte[] b, int off, int len) throws ClassFormatError
+	{
+		return super.defineClass(name, b, off, len);
 	}
 
 	@Override

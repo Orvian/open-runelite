@@ -564,7 +564,7 @@ public class InterfaceLoader
 				int var5 = var1.readUnsignedByte();
 				if (var5 == 0)
 				{
-					var3[var4] = new Integer(var1.readInt());
+					var3[var4] = Integer.valueOf(var1.readInt());
 				}
 				else if (var5 == 1)
 				{

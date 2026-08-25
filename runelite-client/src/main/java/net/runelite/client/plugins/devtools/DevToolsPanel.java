@@ -59,6 +59,8 @@ class DevToolsPanel extends PluginPanel
 	private final WidgetInspector widgetInspector;
 	private final VarInspector varInspector;
 	private final ScriptInspector scriptInspector;
+	private final ActionLog actionLog;
+	private final SideloadedPlugins sideloadedPlugins;
 	private final InventoryInspector inventoryInspector;
 	private final InfoBoxManager infoBoxManager;
 	private final ScheduledExecutorService scheduledExecutorService;
@@ -72,6 +74,8 @@ class DevToolsPanel extends PluginPanel
 		WidgetInspector widgetInspector,
 		VarInspector varInspector,
 		ScriptInspector scriptInspector,
+		ActionLog actionLog,
+		SideloadedPlugins sideloadedPlugins,
 		InventoryInspector inventoryInspector,
 		Notifier notifier,
 		InfoBoxManager infoBoxManager,
@@ -86,6 +90,8 @@ class DevToolsPanel extends PluginPanel
 		this.varInspector = varInspector;
 		this.inventoryInspector = inventoryInspector;
 		this.scriptInspector = scriptInspector;
+		this.actionLog = actionLog;
+		this.sideloadedPlugins = sideloadedPlugins;
 		this.notifier = notifier;
 		this.infoBoxManager = infoBoxManager;
 		this.scheduledExecutorService = scheduledExecutorService;
@@ -101,6 +107,14 @@ class DevToolsPanel extends PluginPanel
 		final JPanel container = new JPanel();
 		container.setBackground(ColorScheme.DARK_GRAY_COLOR);
 		container.setLayout(new GridLayout(0, 2, 3, 3));
+
+		container.add(plugin.getActionLog());
+		plugin.getActionLog().addFrame(actionLog);
+
+		container.add(plugin.getCombatTarget());
+
+		container.add(plugin.getSideloadedPlugins());
+		plugin.getSideloadedPlugins().addFrame(sideloadedPlugins);
 
 		container.add(plugin.getPlayers());
 		container.add(plugin.getNpcs());

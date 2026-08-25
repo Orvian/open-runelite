@@ -106,6 +106,8 @@ public class ClientThread
 		invokeList(invokesAtTickEnd);
 	}
 
+	// ThreadDeath is deprecated for removal, but Thread.stop still throws it on Java 11
+	@SuppressWarnings("removal")
 	private void invokeList(ConcurrentLinkedQueue<BooleanSupplier> invokes)
 	{
 		assert client.isClientThread();

@@ -98,7 +98,16 @@ java -ea -jar runelite-client/build/libs/client-*-shaded.jar
 - Uses your existing RuneLite configuration, settings, and profiles from `~/.runelite/`
 - Does NOT require the `--developer-mode` flag
 
-**Note**: Open-runelite cannot load external plugins from the official RuneLite plugin hub due to missing verification infrastructure. To use external plugins, use development mode with sideloaded plugins (see below).
+**Note on plugin hub plugins**: a development build reports its version as `1.12.37-SNAPSHOT`, and the plugin hub
+only publishes manifests for *released* versions. The manifest request 404s, so no hub plugins load — the jars already
+cached in `~/.runelite/plugins/` are ignored, because loading is driven by the manifest, not by the directory
+contents. Point the client at the manifest of the matching release to get them back:
+
+```bash
+java -ea -Drunelite.pluginhub.version=1.12.36 -jar runelite-client/build/libs/client-*-shaded.jar
+```
+
+See [External Plugin Hub](#external-plugin-hub) below.
 
 #### Development Mode
 
@@ -110,17 +119,20 @@ java -ea -jar runelite-client/build/libs/client-*-shaded.jar --developer-mode
 ```
 
 **Development mode additionally:**
-- Loads plugins from `~/.runelite/sideloaded-plugins/` (bypasses plugin hub verification)
+- Loads plugins from `~/.runelite/sideloaded-plugins/` (no manifest, no signature or hash checks)
 - Enables developer tools and debugging features
 - Requires assertions to be enabled (`-ea`)
 
-**To use your existing external plugins in development mode:**
+**To use your existing external plugins**, either point the client at a released plugin hub manifest:
 
 ```bash
-# Copy plugins from plugin hub directory to sideloaded directory
-cp ~/.runelite/plugins/*.jar ~/.runelite/sideloaded-plugins/
+java -ea -Drunelite.pluginhub.version=1.12.36 -jar runelite-client/build/libs/client-*-shaded.jar --developer-mode
+```
 
-# Then run in developer mode
+or copy the cached jars into the sideload directory, which skips the hub entirely:
+
+```bash
+cp ~/.runelite/plugins/*.jar ~/.runelite/sideloaded-plugins/
 java -ea -jar runelite-client/build/libs/client-*-shaded.jar --developer-mode
 ```
 
@@ -151,7 +163,36 @@ java -ea -jar runelite-client/build/libs/client-*-shaded.jar --developer-mode
 
 ### External Plugin Hub
 
-Open RuneLite includes the standard RuneLite external plugin system, which can download verified plugins from the RuneLite plugin hub. This is accessible through the RuneLite client's plugin configuration panel.
+Open RuneLite includes the standard RuneLite external plugin system unchanged, reachable from the client's plugin
+configuration panel. It works here — the signing certificate is bundled and manifest verification passes — but it is
+version-gated, which is why a locally built client appears to ignore `~/.runelite/plugins/`.
+
+How loading actually works (`ExternalPluginManager.refreshPlugins`):
+
+1. Download the manifest from `https://repo.runelite.net/plugins/manifest/<runelite.pluginhub.version>_lite.js`
+2. Verify its RSA signature against the bundled `externalplugins.crt`
+3. For every enabled plugin **listed in that manifest**, reuse the cached jar when its hash matches, else download it
+4. Load it through `PluginHubClassLoader`
+
+`~/.runelite/plugins/` is a content-addressed cache for step 3 (`<internalName>_<jarHash>.jar`), not a directory that
+is scanned. If step 1 fails, nothing loads regardless of what is cached there:
+
+```
+ERROR n.r.c.e.ExternalPluginManager - Unable to download external plugins
+java.io.IOException: Non-OK response code: 404
+```
+
+`RuneLiteProperties.getPluginHubVersion()` reads the system property before the bundled
+`runelite.properties`, so `-Drunelite.pluginhub.version=<released version>` is all that is needed. Check which
+versions the hub serves with:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" https://repo.runelite.net/plugins/manifest/1.12.36_lite.js
+```
+
+**Caveat**: hub plugins are compiled against the released API. Anything the API has removed since that release throws
+`NoSuchMethodError` at runtime (for example `Client.getMapAngle()`); the fix is a deprecated `default` compatibility
+shim in `runelite-api`.
 
 ## Development Workflow
 

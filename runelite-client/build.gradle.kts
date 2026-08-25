@@ -98,6 +98,8 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.hamcrest)
     testImplementation(libs.mockito)
+    testImplementation(libs.byte.buddy)
+    testImplementation(libs.byte.buddy.agent)
     testImplementation(libs.guice.testlib)
     testImplementation(libs.guice.grapher)
     testImplementation(libs.okhttp.mockserver)

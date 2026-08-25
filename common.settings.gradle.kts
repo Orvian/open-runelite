@@ -65,6 +65,9 @@ gradle.afterProject {
     tasks.withType<Javadoc> {
         (this.options as StandardJavadocDocletOptions).apply {
             quiet()
+            // delombok'd sources have no javadoc on generated members; keep the
+            // real doclint checks but drop the "no comment"/"no @param" noise
+            addStringOption("Xdoclint:all,-missing", "-quiet")
             encoding("UTF-8")
             use(true)
             bottom("Copyright © 2014")

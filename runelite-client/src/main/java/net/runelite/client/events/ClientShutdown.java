@@ -43,6 +43,8 @@ public class ClientShutdown
 		tasks.add(future);
 	}
 
+	// ThreadDeath is deprecated for removal, but Thread.stop still throws it on Java 11
+	@SuppressWarnings("removal")
 	public void waitForAllConsumers(Duration totalTimeout)
 	{
 		long deadline = System.nanoTime() + totalTimeout.toNanos();

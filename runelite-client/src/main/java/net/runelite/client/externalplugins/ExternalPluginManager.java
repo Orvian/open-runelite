@@ -133,6 +133,8 @@ public class ExternalPluginManager
 		executor.submit(this::refreshPlugins);
 	}
 
+	// ThreadDeath is deprecated for removal, but Thread.stop still throws it on Java 11
+	@SuppressWarnings("removal")
 	private void refreshPlugins()
 	{
 		if (safeMode)

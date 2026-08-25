@@ -1385,6 +1385,21 @@ public interface Client extends OAuthApi, GameEngine
 	int getCameraYawTarget();
 
 	/**
+	 * Gets the angle of the map, or target camera yaw.
+	 * <p>
+	 * Retained as a shim for side-loaded plugins built before this was
+	 * removed from the api.
+	 *
+	 * @return the map angle
+	 * @see #getCameraYawTarget()
+	 */
+	@Deprecated
+	default int getMapAngle()
+	{
+		return getCameraYawTarget();
+	}
+
+	/**
 	 * Get the target camera pitch
 	 * The target pitch is the pitch the camera should use based on player input.
 	 * The actual camera pitch, from {@link #getCameraPitch()} ()}, is what the camera
